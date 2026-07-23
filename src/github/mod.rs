@@ -42,7 +42,11 @@ pub struct GhClient {
 impl GhClient {
     pub fn new(token: String) -> Result<Self, GhError> {
         let http = reqwest::Client::builder()
-            .user_agent(concat!("gh-rip/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!(
+                env!("CARGO_PKG_NAME"),
+                "/",
+                env!("CARGO_PKG_VERSION")
+            ))
             .build()?;
         Ok(Self {
             http,

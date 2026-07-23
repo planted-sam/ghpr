@@ -611,7 +611,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gh-rip"
+name = "ghpr"
 version = "0.1.0"
 dependencies = [
  "anyhow",

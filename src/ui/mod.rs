@@ -32,7 +32,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 
 fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let mut spans = vec![
-        Span::styled(" gh-rip ", Style::new().add_modifier(Modifier::BOLD)),
+        Span::styled(" ghpr ", Style::new().add_modifier(Modifier::BOLD)),
         Span::styled(format!("@{} ", app.viewer), dim()),
     ];
     if app.loading {
