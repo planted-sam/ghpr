@@ -82,6 +82,26 @@ pub fn sanitize(line: &str) -> String {
         .collect()
 }
 
+/// Render a comment body as styled markdown lines, owned (so callers can drop
+/// the borrow of App before rendering) and cell-sanitized.
+pub fn markdown_body(body: &str) -> Vec<Line<'static>> {
+    tui_markdown::from_str(body)
+        .lines
+        .into_iter()
+        .map(|line| {
+            let spans: Vec<Span<'static>> = line
+                .spans
+                .into_iter()
+                .map(|s| Span::styled(sanitize(&s.content), s.style))
+                .collect();
+            let mut out = Line::from(spans);
+            out.style = line.style;
+            out.alignment = line.alignment;
+            out
+        })
+        .collect()
+}
+
 pub fn relative_age(ts: Timestamp) -> String {
     let secs = (Timestamp::now().as_second() - ts.as_second()).max(0);
     const MIN: i64 = 60;

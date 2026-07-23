@@ -7,7 +7,7 @@ use ratatui::widgets::{Block, List, ListItem, Paragraph, Wrap};
 use crate::app::{App, Pane};
 use crate::github::types::{ReviewThread, ReviewVerdict, ThreadSort, TimelineItem, TimelineKind};
 
-use super::{dim, hunk_lines, relative_age, sanitize};
+use super::{dim, hunk_lines, markdown_body, relative_age, sanitize};
 
 const HUNK_TAIL_LINES: usize = 8;
 
@@ -198,7 +198,7 @@ fn timeline_body(item: &TimelineItem) -> Text<'static> {
         ]),
         Line::default(),
     ];
-    lines.extend(item.body.lines().map(|l| Line::raw(sanitize(l))));
+    lines.extend(markdown_body(&item.body));
     Text::from(lines)
 }
 
@@ -269,7 +269,7 @@ fn thread_body(thread: &ReviewThread) -> Text<'static> {
             ),
             Span::styled(format!(" · {}", relative_age(comment.created_at)), dim()),
         ]));
-        lines.extend(comment.body.lines().map(|l| Line::raw(sanitize(l))));
+        lines.extend(markdown_body(&comment.body));
     }
     Text::from(lines)
 }
