@@ -54,6 +54,43 @@ impl GhClient {
         })
     }
 
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+
+    /// Latest release tag of owner/repo (e.g. "v0.2.0"); None if the repo has
+    /// no releases yet.
+    pub async fn latest_release_tag(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Result<Option<String>, GhError> {
+        #[derive(Deserialize)]
+        struct Release {
+            tag_name: String,
+        }
+
+        let url = format!("https://api.github.com/repos/{owner}/{repo}/releases/latest");
+        let resp = self
+            .http
+            .get(url)
+            .bearer_auth(self.token.as_str())
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", "2022-11-28")
+            .send()
+            .await?;
+        let status = resp.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(GhError::Api(format!("{status}: {body}")));
+        }
+        let release: Release = resp.json().await?;
+        Ok(Some(release.tag_name))
+    }
+
     async fn graphql<R: DeserializeOwned>(
         &self,
         query: &str,

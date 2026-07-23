@@ -4,6 +4,7 @@ mod cli;
 mod event;
 mod github;
 mod ui;
+mod update;
 
 use std::time::Duration;
 
@@ -70,18 +71,32 @@ async fn dump(client: &GhClient, target: &Target) -> Result<()> {
 }
 
 async fn run_tui(client: GhClient, viewer: String, direct: Option<PrRef>) -> Result<()> {
+    let token = client.token().to_string();
     let mut terminal = ratatui::init();
     let result = event_loop(&mut terminal, client, viewer, direct).await;
     ratatui::restore();
-    result
+    match result? {
+        None => Ok(()),
+        Some(version) => {
+            println!("updating ghpr to v{version}…");
+            let status = tokio::task::spawn_blocking(move || update::run_updater(&token)).await??;
+            match status {
+                self_update::Status::Updated(v) => println!("ghpr updated to v{v}"),
+                self_update::Status::UpToDate(v) => println!("ghpr is already up to date (v{v})"),
+            }
+            Ok(())
+        }
+    }
 }
 
+/// Runs the TUI until quit; returns Some(version) if the user requested an
+/// update install on exit.
 async fn event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     client: GhClient,
     viewer: String,
     direct: Option<PrRef>,
-) -> Result<()> {
+) -> Result<Option<String>> {
     let (tx, mut rx) = mpsc::unbounded_channel();
     let mut app = App::new(client, tx, viewer, direct);
     let mut events = EventStream::new();
@@ -93,14 +108,17 @@ async fn event_loop(
             maybe = events.next() => match maybe {
                 Some(Ok(e)) => AppEvent::Term(e),
                 Some(Err(e)) => return Err(e.into()),
-                None => return Ok(()),
+                None => return Ok(None),
             },
             Some(msg) = rx.recv() => AppEvent::Api(msg),
             _ = tick.tick() => AppEvent::Tick,
         };
         app.handle_event(ev);
         if app.should_quit {
-            return Ok(());
+            return Ok(app
+                .update_requested
+                .then(|| app.update_available.clone())
+                .flatten());
         }
     }
 }

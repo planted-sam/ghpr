@@ -6,9 +6,13 @@ GitHub's web UI sucks at PR's with hella files/comments. `ghpr` is a TUI app to 
 
 ## Install
 
+Grab a prebuilt binary from the [releases page](https://github.com/planted-sam/ghpr/releases) (macOS arm64, Linux x86_64/arm64), or build from source:
+
 ```sh
 cargo install --path .
 ```
+
+`ghpr` checks for new releases on startup — when the header shows an update notice, press `U` to install it in place.
 
 ## Auth
 

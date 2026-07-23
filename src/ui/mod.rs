@@ -44,6 +44,12 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
             Style::new().fg(Color::Yellow),
         ));
     }
+    if let Some(version) = &app.update_available {
+        spans.push(Span::styled(
+            format!("· update available: v{version} — press U to install "),
+            Style::new().fg(Color::Yellow),
+        ));
+    }
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 

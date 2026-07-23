@@ -57,6 +57,9 @@ pub struct App {
     pub error: Option<String>,
     pub status: Option<String>,
 
+    pub update_available: Option<String>,
+    pub update_requested: bool,
+
     req_seq: u64,
     direct: bool,
     pub should_quit: bool,
@@ -89,6 +92,8 @@ impl App {
             spinner: 0,
             error: None,
             status: None,
+            update_available: None,
+            update_requested: false,
             req_seq: 0,
             direct: direct.is_some(),
             should_quit: false,
@@ -97,7 +102,21 @@ impl App {
             Some(pr) => app.open_pr(pr),
             None => app.load_list(),
         }
+        app.check_for_update();
         app
+    }
+
+    fn check_for_update(&self) {
+        let client = self.client.clone();
+        let tx = self.tx.clone();
+        tokio::spawn(async move {
+            if let Some(version) = crate::update::check_for_update(&client).await {
+                let _ = tx.send(ApiEvent {
+                    req: None,
+                    payload: ApiResult::UpdateAvailable(version),
+                });
+            }
+        });
     }
 
     fn next_req(&mut self) -> u64 {
@@ -219,6 +238,9 @@ impl App {
             ApiResult::ThreadResolved(Err(e)) => {
                 self.error = Some(e.to_string());
             }
+            ApiResult::UpdateAvailable(version) => {
+                self.update_available = Some(version);
+            }
         }
     }
 
@@ -256,6 +278,11 @@ impl App {
         }
         if self.compose.is_some() {
             self.handle_key_compose(key);
+            return;
+        }
+        if key.code == KeyCode::Char('U') && self.update_available.is_some() {
+            self.update_requested = true;
+            self.should_quit = true;
             return;
         }
         match self.screen {

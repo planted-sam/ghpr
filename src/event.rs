@@ -22,4 +22,6 @@ pub enum ApiResult {
     PrDetail(Result<PrDetail, GhError>),
     Posted(Result<(), GhError>),
     ThreadResolved(Result<(String, bool), GhError>),
+    /// A newer release exists (version without the leading "v").
+    UpdateAvailable(String),
 }
