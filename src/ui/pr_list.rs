@@ -47,24 +47,27 @@ fn item(pr: &crate::github::types::PrSummary) -> ListItem<'static> {
         spans.push(Span::styled("[draft] ", dim()));
     }
     spans.push(Span::raw(pr.title.clone()));
+    spans.push(Span::styled("  — ", dim()));
+    match pr.review_decision.as_deref() {
+        Some("APPROVED") => {
+            spans.push(Span::styled("✓ approved ", Style::new().fg(Color::Green)))
+        }
+        Some("CHANGES_REQUESTED") => {
+            spans.push(Span::styled("± changes ", Style::new().fg(Color::Red)))
+        }
+        Some("REVIEW_REQUIRED") => {
+            spans.push(Span::styled("• review ", Style::new().fg(Color::Yellow)))
+        }
+        _ => {}
+    }
     spans.push(Span::styled(
         format!(
-            "  — {} · {} · 💬{}",
+            "{} · {} · 💬{}",
             pr.author,
             relative_age(pr.updated_at),
             pr.comment_count
         ),
         dim(),
     ));
-    match pr.review_decision.as_deref() {
-        Some("APPROVED") => spans.push(Span::styled(" ✓ approved", Style::new().fg(Color::Green))),
-        Some("CHANGES_REQUESTED") => {
-            spans.push(Span::styled(" ± changes", Style::new().fg(Color::Red)))
-        }
-        Some("REVIEW_REQUIRED") => {
-            spans.push(Span::styled(" • review", Style::new().fg(Color::Yellow)))
-        }
-        _ => {}
-    }
     ListItem::new(Line::from(spans))
 }
