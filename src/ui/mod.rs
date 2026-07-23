@@ -65,7 +65,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             match app.screen {
                 Screen::List => " j/k move · Enter open · r refresh · o browser · q quit",
                 Screen::Detail => {
-                    " Tab pane · j/k select · ]/[ unresolved · s sort · c comment · a reply · x resolve · C-d/u scroll · r refresh · o browser · Esc back"
+                    " Tab pane · j/k select · J/K comment · y copy · ]/[ unresolved · s sort · c comment · a reply · x resolve · C-d/u scroll · r refresh · o browser · Esc back"
                 }
             }
         };

@@ -60,30 +60,34 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         detail.threads.len(),
     );
 
-    let (items, body): (Vec<ListItem<'static>>, Text<'static>) = match app.pane {
-        Pane::Conversation => {
-            let items = detail.timeline.iter().map(timeline_item).collect();
-            let body = app
-                .timeline_state
-                .selected()
-                .and_then(|i| detail.timeline.get(i))
-                .map(timeline_body)
-                .unwrap_or_else(|| {
-                    Text::styled("no conversation comments yet — press c to add one", dim())
-                });
-            (items, body)
-        }
-        Pane::Threads => {
-            let items = detail.threads.iter().map(thread_item).collect();
-            let body = app
-                .thread_state
-                .selected()
-                .and_then(|i| detail.threads.get(i))
-                .map(thread_body)
-                .unwrap_or_else(|| Text::styled("no review threads", dim()));
-            (items, body)
-        }
-    };
+    let (items, body, comment_line): (Vec<ListItem<'static>>, Text<'static>, Option<usize>) =
+        match app.pane {
+            Pane::Conversation => {
+                let items = detail.timeline.iter().map(timeline_item).collect();
+                let body = app
+                    .timeline_state
+                    .selected()
+                    .and_then(|i| detail.timeline.get(i))
+                    .map(timeline_body)
+                    .unwrap_or_else(|| {
+                        Text::styled("no conversation comments yet — press c to add one", dim())
+                    });
+                (items, body, None)
+            }
+            Pane::Threads => {
+                let items = detail.threads.iter().map(thread_item).collect();
+                let (body, comment_line) = app
+                    .thread_state
+                    .selected()
+                    .and_then(|i| detail.threads.get(i))
+                    .map(|t| {
+                        let (body, line) = thread_body(t, app.comment_sel);
+                        (body, Some(line))
+                    })
+                    .unwrap_or_else(|| (Text::styled("no review threads", dim()), None));
+                (items, body, comment_line)
+            }
+        };
 
     let [head_area, tabs_area, list_area, body_area] = Layout::vertical([
         Constraint::Length(2),
@@ -105,6 +109,14 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         Pane::Threads => f.render_stateful_widget(list, list_area, &mut app.thread_state),
     }
 
+    if app.scroll_to_comment {
+        app.scroll_to_comment = false;
+        if let Some(idx) = comment_line {
+            let inner_w = body_area.width.saturating_sub(2).max(1); // borders
+            app.body_scroll = visual_row(&body, idx, inner_w);
+        }
+    }
+
     f.render_widget(
         Paragraph::new(body)
             .block(Block::bordered())
@@ -112,6 +124,18 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             .scroll((app.body_scroll, 0)),
         body_area,
     );
+}
+
+/// Estimated visual row of logical line `idx` when wrapped to `width`.
+/// Word-wrapping can occasionally use one more row than this estimate for
+/// long lines broken at word boundaries; close enough for scroll targeting.
+fn visual_row(text: &Text, idx: usize, width: u16) -> u16 {
+    text.lines
+        .iter()
+        .take(idx)
+        .map(|l| l.width().max(1).div_ceil(width as usize))
+        .sum::<usize>()
+        .min(u16::MAX as usize) as u16
 }
 
 fn state_span(state: &str, is_draft: bool) -> Span<'static> {
@@ -236,7 +260,9 @@ fn thread_item(thread: &ReviewThread) -> ListItem<'static> {
     ListItem::new(Line::from(spans))
 }
 
-fn thread_body(thread: &ReviewThread) -> Text<'static> {
+fn thread_body(thread: &ReviewThread, sel: usize) -> (Text<'static>, usize) {
+    let sel = sel.min(thread.comments.len().saturating_sub(1));
+    let mut header_idx = 0;
     let mut lines: Vec<Line<'static>> = Vec::new();
     let loc = match thread.line {
         Some(line) => format!("{}:{}", thread.path, line),
@@ -260,16 +286,92 @@ fn thread_body(thread: &ReviewThread) -> Text<'static> {
             dim(),
         ));
     }
-    for comment in &thread.comments {
+    for (i, comment) in thread.comments.iter().enumerate() {
         lines.push(Line::default());
-        lines.push(Line::from(vec![
+        let mut header = vec![
             Span::styled(
                 comment.author.clone(),
                 Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             ),
             Span::styled(format!(" · {}", relative_age(comment.created_at)), dim()),
-        ]));
+        ];
+        if i == sel {
+            header_idx = lines.len();
+            header.insert(0, Span::raw("▶ "));
+            lines.push(Line::from(header).style(Style::new().add_modifier(Modifier::REVERSED)));
+        } else {
+            lines.push(Line::from(header));
+        }
         lines.extend(markdown_body(&comment.body));
     }
-    Text::from(lines)
+    (Text::from(lines), header_idx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::github::types::ThreadComment;
+
+    #[test]
+    fn visual_row_counts_wrapped_lines() {
+        let text = Text::from(vec![
+            Line::raw("1234567890"),      // 10 wide → 1 row at width 10
+            Line::raw(""),                // empty → still 1 row
+            Line::raw("123456789012345"), // 15 wide → 2 rows at width 10
+            Line::raw("target"),
+        ]);
+        assert_eq!(visual_row(&text, 0, 10), 0);
+        assert_eq!(visual_row(&text, 1, 10), 1);
+        assert_eq!(visual_row(&text, 2, 10), 2);
+        assert_eq!(visual_row(&text, 3, 10), 4);
+    }
+
+    fn thread(n: usize) -> ReviewThread {
+        ReviewThread {
+            id: "t".to_string(),
+            is_resolved: false,
+            is_outdated: false,
+            path: "src/lib.rs".to_string(),
+            line: Some(1),
+            reply_to_db_id: None,
+            diff_hunk: String::new(),
+            comments: (0..n)
+                .map(|i| ThreadComment {
+                    author: format!("user{i}"),
+                    body: format!("comment {i}"),
+                    created_at: jiff::Timestamp::UNIX_EPOCH,
+                })
+                .collect(),
+            hidden_count: 0,
+            last_activity: jiff::Timestamp::UNIX_EPOCH,
+        }
+    }
+
+    #[test]
+    fn thread_body_marks_selected_comment() {
+        let (text, idx) = thread_body(&thread(3), 1);
+        let line: String = text.lines[idx]
+            .spans
+            .iter()
+            .map(|s| s.content.as_ref())
+            .collect();
+        assert!(line.starts_with("▶ user1"), "got: {line}");
+    }
+
+    #[test]
+    fn thread_body_clamps_out_of_range_selection() {
+        let (text, idx) = thread_body(&thread(2), 99);
+        let line: String = text.lines[idx]
+            .spans
+            .iter()
+            .map(|s| s.content.as_ref())
+            .collect();
+        assert!(line.starts_with("▶ user1"), "got: {line}");
+    }
+
+    #[test]
+    fn thread_body_empty_thread_returns_zero_offset() {
+        let (_, idx) = thread_body(&thread(0), 0);
+        assert_eq!(idx, 0);
+    }
 }

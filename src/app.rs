@@ -49,6 +49,9 @@ pub struct App {
     pub thread_state: ListState,
     pub thread_sort: ThreadSort,
     pub body_scroll: u16,
+    pub comment_sel: usize,
+    pub scroll_to_comment: bool,
+    clipboard: Option<arboard::Clipboard>,
 
     pub compose: Option<Compose>,
 
@@ -87,6 +90,9 @@ impl App {
             thread_state: ListState::default(),
             thread_sort: ThreadSort::default(),
             body_scroll: 0,
+            comment_sel: 0,
+            scroll_to_comment: false,
+            clipboard: None,
             compose: None,
             loading: false,
             spinner: 0,
@@ -145,7 +151,7 @@ impl App {
         self.pane = Pane::Conversation;
         self.timeline_state = ListState::default();
         self.thread_state = ListState::default();
-        self.body_scroll = 0;
+        self.reset_body_view();
         self.current_pr = Some(pr);
         self.refresh_detail();
     }
@@ -267,6 +273,12 @@ impl App {
         detail.threads.get(self.thread_state.selected()?)
     }
 
+    fn reset_body_view(&mut self) {
+        self.body_scroll = 0;
+        self.comment_sel = 0;
+        self.scroll_to_comment = false;
+    }
+
     fn handle_key(&mut self, key: KeyEvent) {
         // Any keypress dismisses transient messages.
         self.error = None;
@@ -346,15 +358,15 @@ impl App {
                     Pane::Conversation => Pane::Threads,
                     Pane::Threads => Pane::Conversation,
                 };
-                self.body_scroll = 0;
+                self.reset_body_view();
             }
             KeyCode::Char('1') => {
                 self.pane = Pane::Conversation;
-                self.body_scroll = 0;
+                self.reset_body_view();
             }
             KeyCode::Char('2') => {
                 self.pane = Pane::Threads;
-                self.body_scroll = 0;
+                self.reset_body_view();
             }
             KeyCode::Char('j') | KeyCode::Down => self.move_detail_sel(1),
             KeyCode::Char('k') | KeyCode::Up => self.move_detail_sel(-1),
@@ -368,6 +380,9 @@ impl App {
             }
             KeyCode::PageDown => self.body_scroll = self.body_scroll.saturating_add(5),
             KeyCode::PageUp => self.body_scroll = self.body_scroll.saturating_sub(5),
+            KeyCode::Char('J') => self.move_comment_sel(1),
+            KeyCode::Char('K') => self.move_comment_sel(-1),
+            KeyCode::Char('y') => self.copy_selected_comment(),
             KeyCode::Char('s') => self.toggle_thread_sort(),
             KeyCode::Char(']') => self.jump_unresolved(1),
             KeyCode::Char('[') => self.jump_unresolved(-1),
@@ -392,7 +407,49 @@ impl App {
             }
             Pane::Threads => Self::move_sel(&mut self.thread_state, detail.threads.len(), delta),
         }
-        self.body_scroll = 0;
+        self.reset_body_view();
+    }
+
+    fn move_comment_sel(&mut self, delta: i64) {
+        self.pane = Pane::Threads;
+        let Some(thread) = self.selected_thread() else {
+            return;
+        };
+        let len = thread.comments.len();
+        if len == 0 {
+            return;
+        }
+        let cur = self.comment_sel.min(len - 1) as i64;
+        self.comment_sel = (cur + delta).clamp(0, len as i64 - 1) as usize;
+        self.scroll_to_comment = true;
+    }
+
+    fn copy_selected_comment(&mut self) {
+        self.pane = Pane::Threads;
+        let Some(thread) = self.selected_thread() else {
+            self.status = Some("no thread selected".to_string());
+            return;
+        };
+        let Some(comment) = thread.comments.get(
+            self.comment_sel
+                .min(thread.comments.len().saturating_sub(1)),
+        ) else {
+            return;
+        };
+        let (body, author) = (comment.body.clone(), comment.author.clone());
+        if self.clipboard.is_none() {
+            match arboard::Clipboard::new() {
+                Ok(cb) => self.clipboard = Some(cb),
+                Err(e) => {
+                    self.error = Some(format!("clipboard unavailable: {e}"));
+                    return;
+                }
+            }
+        }
+        match self.clipboard.as_mut().unwrap().set_text(body) {
+            Ok(()) => self.status = Some(format!("copied comment by {author} ✓")),
+            Err(e) => self.error = Some(format!("copy failed: {e}")),
+        }
     }
 
     fn toggle_thread_sort(&mut self) {
@@ -401,7 +458,7 @@ impl App {
             ThreadSort::Activity => ThreadSort::Position,
         };
         self.pane = Pane::Threads;
-        self.body_scroll = 0;
+        self.reset_body_view();
         if let Some(detail) = &mut self.detail {
             detail.sort_threads(self.thread_sort);
             Self::clamp(&mut self.thread_state, detail.threads.len());
@@ -445,7 +502,7 @@ impl App {
                 .or_else(|| unresolved.last())
         };
         self.thread_state.select(next.copied());
-        self.body_scroll = 0;
+        self.reset_body_view();
     }
 
     fn start_compose_conversation(&mut self) {
