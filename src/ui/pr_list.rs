@@ -49,9 +49,7 @@ fn item(pr: &crate::github::types::PrSummary) -> ListItem<'static> {
     spans.push(Span::raw(pr.title.clone()));
     spans.push(Span::styled("  — ", dim()));
     match pr.review_decision.as_deref() {
-        Some("APPROVED") => {
-            spans.push(Span::styled("✓ approved ", Style::new().fg(Color::Green)))
-        }
+        Some("APPROVED") => spans.push(Span::styled("✓ approved ", Style::new().fg(Color::Green))),
         Some("CHANGES_REQUESTED") => {
             spans.push(Span::styled("± changes ", Style::new().fg(Color::Red)))
         }
