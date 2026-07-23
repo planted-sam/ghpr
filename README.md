@@ -6,7 +6,13 @@ GitHub's web UI sucks at PR's with hella files/comments. `ghpr` is a TUI app to 
 
 ## Install
 
-Grab a prebuilt binary from the [releases page](https://github.com/planted-sam/ghpr/releases) (macOS arm64, Linux x86_64/arm64), or build from source:
+One-liner (macOS arm64, Linux x86_64/arm64 — installs to `/usr/local/bin` or `~/.local/bin`):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/planted-sam/ghpr/main/install.sh | sh
+```
+
+Or grab a prebuilt binary from the [releases page](https://github.com/planted-sam/ghpr/releases), or build from source:
 
 ```sh
 cargo install --path .
