@@ -1,4 +1,5 @@
 # ghpr
+[Screencast from 2026-07-23 14-23-00.webm](https://github.com/user-attachments/assets/13544853-6ffc-43a6-82ad-afa280c789a8)
 
 A terminal UI for reading and replying to GitHub pull request comments, built with [ratatui](https://ratatui.rs).
 
