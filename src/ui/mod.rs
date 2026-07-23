@@ -53,23 +53,62 @@ fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
+const COMPOSE_HINTS: &[(&str, &str)] = &[("Ctrl-S", "send"), ("Esc", "cancel")];
+const LIST_HINTS: &[(&str, &str)] = &[
+    ("j/k", "move"),
+    ("Enter", "open"),
+    ("r", "refresh"),
+    ("o", "browser"),
+    ("q", "quit"),
+];
+const DETAIL_HINTS: &[(&str, &str)] = &[
+    ("Tab", "pane"),
+    ("j/k", "select"),
+    ("J/K", "comment"),
+    ("y", "copy"),
+    ("]/[", "unresolved"),
+    ("s", "sort"),
+    ("c", "comment"),
+    ("a", "reply"),
+    ("x", "resolve"),
+    ("C-d/u", "scroll"),
+    ("r", "refresh"),
+    ("o", "browser"),
+    ("Esc", "back"),
+];
+
+fn hint_line(hints: &[(&str, &str)]) -> Line<'static> {
+    let key_style = Style::new().fg(Color::Cyan);
+    let mut spans = Vec::with_capacity(hints.len() * 4);
+    for (i, (key, action)) in hints.iter().enumerate() {
+        spans.push(Span::styled(
+            if i == 0 {
+                format!(" {key}")
+            } else {
+                (*key).to_string()
+            },
+            key_style,
+        ));
+        spans.push(Span::styled(format!(" {action}"), dim()));
+        if i + 1 < hints.len() {
+            spans.push(Span::styled(" · ", dim()));
+        }
+    }
+    Line::from(spans)
+}
+
 fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let line = if let Some(err) = &app.error {
         Line::styled(format!(" ✗ {err}"), Style::new().fg(Color::Red))
     } else if let Some(status) = &app.status {
         Line::styled(format!(" {status}"), Style::new().fg(Color::Green))
+    } else if app.compose.is_some() {
+        hint_line(COMPOSE_HINTS)
     } else {
-        let hints = if app.compose.is_some() {
-            " Ctrl-S send · Esc cancel"
-        } else {
-            match app.screen {
-                Screen::List => " j/k move · Enter open · r refresh · o browser · q quit",
-                Screen::Detail => {
-                    " Tab pane · j/k select · J/K comment · y copy · ]/[ unresolved · s sort · c comment · a reply · x resolve · C-d/u scroll · r refresh · o browser · Esc back"
-                }
-            }
-        };
-        Line::styled(hints, dim())
+        match app.screen {
+            Screen::List => hint_line(LIST_HINTS),
+            Screen::Detail => hint_line(DETAIL_HINTS),
+        }
     };
     f.render_widget(Paragraph::new(line), area);
 }
