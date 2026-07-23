@@ -55,7 +55,7 @@ Two panes: **Conversation** (timeline: description, comments, review verdicts) a
 | `Tab`, `1` / `2` | switch pane |
 | `j` / `k` | select item |
 | `]` / `[` | next / previous unresolved thread |
-| `s` | toggle thread sort: by file (unresolved first) / by latest comment |
+| `s` | toggle thread sort: by latest comment (default) / by file (unresolved first) |
 | `c` | new conversation comment |
 | `a` | reply to selected thread |
 | `x` | resolve / unresolve selected thread |

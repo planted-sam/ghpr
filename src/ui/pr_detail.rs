@@ -163,7 +163,9 @@ fn tabs_line(
         ThreadSort::Activity => "recent",
     };
     let thr = format!(" [2] Threads ({unresolved} open / {threads} · by {sort_label}) ");
-    let active = Style::new().add_modifier(Modifier::BOLD | Modifier::UNDERLINED);
+    let active = Style::new()
+        .fg(Color::Cyan)
+        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED);
     match pane {
         Pane::Conversation => {
             Line::from(vec![Span::styled(conv, active), Span::styled(thr, dim())])

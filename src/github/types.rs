@@ -51,9 +51,9 @@ pub struct PrDetail {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ThreadSort {
     /// Unresolved first, then by file path and line.
-    #[default]
     Position,
     /// Most recent comment first.
+    #[default]
     Activity,
 }
 
@@ -312,18 +312,13 @@ mod tests {
         assert_eq!(detail.threads.len(), 16);
         assert_eq!(detail.unresolved_count(), 3);
 
-        // Threads sort unresolved-first.
-        let first_resolved = detail.threads.iter().position(|t| t.is_resolved).unwrap();
+        // Default sort is by latest activity, newest first.
         assert!(
-            detail.threads[..first_resolved]
-                .iter()
-                .all(|t| !t.is_resolved),
-            "unresolved threads must sort before resolved ones"
-        );
-        assert!(
-            detail.threads[first_resolved..]
-                .iter()
-                .all(|t| t.is_resolved)
+            detail
+                .threads
+                .windows(2)
+                .all(|w| w[0].last_activity >= w[1].last_activity),
+            "default sort must be newest-first"
         );
 
         // Every thread carries a reply target and comments.
