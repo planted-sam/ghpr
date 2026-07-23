@@ -25,6 +25,12 @@ test:
 # Everything a commit should pass
 ci: fmt-check clippy test
 
+# Bump package version in Cargo.toml + Cargo.lock, e.g. `just bump 0.1.5`
+bump VERSION:
+    sed -i 's/^version = ".*"/version = "{{VERSION}}"/' Cargo.toml
+    cargo update -p ghpr --precise {{VERSION}}
+    git diff Cargo.toml Cargo.lock
+
 # Debug: print fetched JSON without the TUI, e.g. `just dump prs` / `just dump owner/repo#123`
 dump *ARGS:
     cargo run -- --dump {{ARGS}}
