@@ -2,12 +2,14 @@
 //! structs in [`super::queries`]. This layer is fixture-testable.
 
 use jiff::Timestamp;
+use serde::Serialize;
+use serde::ser::SerializeMap;
 
 use crate::cli::PrRef;
 
 use super::queries::{RawActor, RawPrSummary, RawPullRequest, RawThread, RawTimelineNode};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PrSummary {
     /// "owner/repo"
     pub repo: String,
@@ -31,7 +33,7 @@ impl PrSummary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct PrDetail {
     /// GraphQL node id — the `subjectId` for addComment.
     pub id: String,
@@ -74,11 +76,12 @@ impl PrDetail {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct TimelineItem {
     pub author: String,
     pub body: String,
     pub created_at: Timestamp,
+    #[serde(flatten)]
     pub kind: TimelineKind,
 }
 
@@ -88,7 +91,28 @@ pub enum TimelineKind {
     Review(ReviewVerdict),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Serializes flat as `{"kind":"comment"}` or `{"kind":"review","verdict":…}`
+/// so it can be flattened into [`TimelineItem`].
+impl Serialize for TimelineKind {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            TimelineKind::Comment => {
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry("kind", "comment")?;
+                map.end()
+            }
+            TimelineKind::Review(verdict) => {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("kind", "review")?;
+                map.serialize_entry("verdict", verdict)?;
+                map.end()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReviewVerdict {
     Approved,
     ChangesRequested,
@@ -109,10 +133,12 @@ impl ReviewVerdict {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ReviewThread {
     /// GraphQL node id — the `threadId` for resolve/unresolve.
     pub id: String,
+    /// Web URL of the thread's root comment.
+    pub url: Option<String>,
     pub is_resolved: bool,
     pub is_outdated: bool,
     pub path: String,
@@ -127,7 +153,7 @@ pub struct ReviewThread {
     pub last_activity: Timestamp,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ThreadComment {
     pub author: String,
     pub body: String,
@@ -173,6 +199,7 @@ impl From<RawThread> for ReviewThread {
             .total_count
             .saturating_sub(raw.comments.nodes.len() as u64);
         let reply_to_db_id = raw.comments.nodes.first().and_then(|c| c.database_id);
+        let url = raw.comments.nodes.first().and_then(|c| c.url.clone());
         let diff_hunk = raw
             .comments
             .nodes
@@ -195,6 +222,7 @@ impl From<RawThread> for ReviewThread {
             .unwrap_or(Timestamp::UNIX_EPOCH);
         ReviewThread {
             id: raw.id,
+            url,
             is_resolved: raw.is_resolved,
             is_outdated: raw.is_outdated,
             path: raw.path,
