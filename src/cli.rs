@@ -10,7 +10,11 @@ pub struct Cli {
     /// PR to open directly ("owner/repo#123"), or "prs" to list involved PRs (the default)
     pub target: Option<String>,
 
-    /// Print fetched data as JSON instead of launching the TUI
+    /// Print the parsed PR (or PR list) as JSON to stdout instead of launching the TUI
+    #[arg(long, conflicts_with = "dump")]
+    pub json: bool,
+
+    /// Debug: print raw GraphQL JSON to stdout and parsed types to stderr (first page only)
     #[arg(long)]
     pub dump: bool,
 }
@@ -69,6 +73,12 @@ mod tests {
         assert_eq!(pr.number, 1234);
         assert_eq!(pr.to_string(), "rust-lang/cargo#1234");
         assert_eq!(pr.url(), "https://github.com/rust-lang/cargo/pull/1234");
+    }
+
+    #[test]
+    fn json_and_dump_are_exclusive() {
+        assert!(Cli::try_parse_from(["ghpr", "--json", "--dump"]).is_err());
+        assert!(Cli::try_parse_from(["ghpr", "--json", "owner/repo#1"]).is_ok());
     }
 
     #[test]

@@ -331,6 +331,7 @@ mod tests {
     fn thread(n: usize) -> ReviewThread {
         ReviewThread {
             id: "t".to_string(),
+            url: None,
             is_resolved: false,
             is_outdated: false,
             path: "src/lib.rs".to_string(),

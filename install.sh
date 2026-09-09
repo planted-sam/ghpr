@@ -58,6 +58,19 @@ fi
 install -m 755 "$tmp/ghpr" "$dest/ghpr"
 echo "Installed ghpr $tag to $dest/ghpr"
 
+# Optional: install the Claude Code skill (user scope). Skipped when Claude Code
+# isn't set up, the ghpr plugin is already installed via /plugin, or GHPR_NO_SKILL is set.
+claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+if [ -z "${GHPR_NO_SKILL:-}" ] && [ -d "$claude_dir" ] && ! grep -qs '"ghpr@' "$claude_dir/plugins/installed_plugins.json"; then
+  skill_dir="$claude_dir/skills/ghpr"
+  skill_url="https://raw.githubusercontent.com/$REPO/$tag/skills/ghpr/SKILL.md"
+  if mkdir -p "$skill_dir" && curl -fsSL "$skill_url" -o "$skill_dir/SKILL.md"; then
+    echo "Installed Claude Code skill to $skill_dir/SKILL.md (try: \"use ghpr to get comments for this PR\")"
+  else
+    echo "note: could not install the Claude Code skill (optional) — see README for /plugin install"
+  fi
+fi
+
 case ":$PATH:" in
   *":$dest:"*) ;;
   *) echo "note: $dest is not on your PATH — add it to your shell profile" ;;

@@ -40,7 +40,7 @@ query($owner: String!, $name: String!, $number: Int!, $threadsAfter: String) {
           id isResolved isOutdated path line
           comments(first: 50) {
             totalCount
-            nodes { databaseId author { login } body createdAt diffHunk }
+            nodes { databaseId url author { login } body createdAt diffHunk }
           }
         }
       }
@@ -210,6 +210,8 @@ pub struct RawThreadComments {
 #[serde(rename_all = "camelCase")]
 pub struct RawThreadComment {
     pub database_id: Option<u64>,
+    #[serde(default)]
+    pub url: Option<String>,
     pub author: Option<RawActor>,
     pub body: String,
     pub created_at: String,

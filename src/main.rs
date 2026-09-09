@@ -3,6 +3,7 @@ mod auth;
 mod cli;
 mod event;
 mod github;
+mod json;
 mod ui;
 mod update;
 
@@ -35,6 +36,9 @@ async fn main() -> Result<()> {
     let token = auth::resolve_token().await?;
     let client = GhClient::new(token)?;
 
+    if cli.json {
+        return print_json(&client, &target).await;
+    }
     if cli.dump {
         return dump(&client, &target).await;
     }
@@ -51,7 +55,21 @@ async fn main() -> Result<()> {
     run_tui(client, viewer, direct).await
 }
 
-/// Debug mode: print raw JSON to stdout and parsed domain types to stderr.
+/// `--json`: print the parsed PR (fully paginated) or PR list as JSON.
+async fn print_json(client: &GhClient, target: &Target) -> Result<()> {
+    let out = match target {
+        Target::List => json::prs_to_json(&client.search_involved_prs().await?)?,
+        Target::Pr(pr) => {
+            let mut detail = client.fetch_pr(pr).await?;
+            json::pr_to_json(pr, &mut detail)?
+        }
+    };
+    println!("{out}");
+    Ok(())
+}
+
+/// Debug mode: print raw JSON (first page only) to stdout and parsed domain
+/// types to stderr.
 async fn dump(client: &GhClient, target: &Target) -> Result<()> {
     match target {
         Target::List => {
