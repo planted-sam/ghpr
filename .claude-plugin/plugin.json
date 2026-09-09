@@ -1,0 +1,9 @@
+{
+  "name": "ghpr",
+  "description": "Fetch GitHub PR review threads and comments as JSON with the ghpr CLI and plan how to address each one.",
+  "version": "0.2.0",
+  "author": { "name": "Sam Baskin", "url": "https://github.com/planted-sam" },
+  "homepage": "https://github.com/planted-sam/ghpr",
+  "repository": "https://github.com/planted-sam/ghpr",
+  "keywords": ["github", "pull-request", "code-review", "comments"]
+}
