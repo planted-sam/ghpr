@@ -25,11 +25,16 @@ test:
 # Everything a commit should pass
 ci: fmt-check clippy test
 
-# Bump package version in Cargo.toml + Cargo.lock, e.g. `just bump 0.1.5`
+# Bump package version in Cargo.toml + Cargo.lock + plugin.json, e.g. `just bump 0.1.5`
 bump VERSION:
     sed -i 's/^version = ".*"/version = "{{VERSION}}"/' Cargo.toml
+    sed -i 's/"version": ".*"/"version": "{{VERSION}}"/' .claude-plugin/plugin.json
     cargo update -p ghpr --precise {{VERSION}}
-    git diff Cargo.toml Cargo.lock
+    git diff Cargo.toml Cargo.lock .claude-plugin/plugin.json
+
+# Print a PR (or the PR list) as JSON, e.g. `just json owner/repo#123`
+json *ARGS:
+    cargo run -- --json {{ARGS}}
 
 # Debug: print fetched JSON without the TUI, e.g. `just dump prs` / `just dump owner/repo#123`
 dump *ARGS:
